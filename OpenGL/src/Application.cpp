@@ -6,23 +6,9 @@
 #include <string>
 #include <sstream>
 
-// __debugbreak is specific to msvc and it won't work on clang or gcc or other compilers. 
-#define ASSERT(x) if (!(x)) __debugbreak();
-#define GLCall(x) GLClearError();\
-    x;\
-    ASSERT(GLLogCall(#x, __FILE__, __LINE__))
-
-static void GLClearError() {
-    while (glGetError());
-}
-
-static bool GLLogCall(const char* function, const char* file, int line){
-    while (GLenum error = glGetError()) {
-        std::cout << "[OpenGL Error] (" << error << "): " << function << " " << file << ":" << line << std::endl;
-        return false;
-    }
-    return true;
-}
+#include "Renderer.h"
+#include "VertexBuffer.h"
+#include "IndexBuffer.h"
 
 struct ShaderProgramSource {
     std::string VertexSource;
@@ -122,88 +108,80 @@ int main(void){
 
     std::cout << glGetString(GL_VERSION) << std::endl;
 
-    // 2D 
-    float positions[] = {
-        -0.5f, -0.5f, // 0
-         0.5f, -0.5f, // 1
-         0.5f,  0.5f, // 2
-        -0.5f,  0.5f, // 3
-    };
+    {
+        // 2D 
+        float positions[] = {
+            -0.5f, -0.5f, // 0
+             0.5f, -0.5f, // 1
+             0.5f,  0.5f, // 2
+            -0.5f,  0.5f, // 3
+        };
 
-    unsigned int indices[] = { // Could use char or short to save performance (thought if using them for calculations this would not be the case) ... must be unsigned
-        0, 1, 2,
-        2, 3, 0
-    };
+        unsigned int indices[] = { // Could use char or short to save performance (thought if using them for calculations this would not be the case) ... must be unsigned
+            0, 1, 2,
+            2, 3, 0
+        };
 
-    unsigned int vao;
-    GLCall(glGenVertexArrays(1, &vao));
-    GLCall(glBindVertexArray(vao));
+        unsigned int vao;
+        GLCall(glGenVertexArrays(1, &vao));
+        GLCall(glBindVertexArray(vao));
 
-    // Give OpenGL the data
-    //unsigned int buffer; 
-    unsigned int buffer;
-    GLCall(glGenBuffers(1, &buffer)); //Create buffer
-    GLCall(glBindBuffer(GL_ARRAY_BUFFER, buffer)); // Select that buffer (bind selects that buffer) ... 
-    GLCall(glBufferData(GL_ARRAY_BUFFER, 4 * 2 * sizeof(float), positions, GL_STATIC_DRAW));
+        VertexBuffer vb(positions, 4 * 2 * sizeof(float));
 
-    unsigned int ibo; //indexBufferObject
-    GLCall(glGenBuffers(1, &ibo));
-    GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo));
-    GLCall(glBufferData(GL_ELEMENT_ARRAY_BUFFER, 3 * 2 * sizeof(unsigned int), indices, GL_STATIC_DRAW));
+        GLCall(glEnableVertexAttribArray(0));
+        GLCall(glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, 0));
 
-    // glBindBuffer binds the buffer across OpenGL, so that is the buffer that will be used. I can remove this by writing: glBindBuffer(GL_ARRRAY_BUFFER, 0)
+        IndexBuffer ib(indices, 6);
 
-    // only specifying a single attribute, so only need to call this function once.
-    GLCall(glEnableVertexAttribArray(0));
-    GLCall(glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, 0));
-
-    ShaderProgramSource source = ParseShader("res/shaders/Basic.Shader");
-    unsigned int shader = CreateShader(source.VertexSource, source.FragmentSource);
-    GLCall(glUseProgram(shader));
-
-    GLCall(int location = glGetUniformLocation(shader, "u_Color"));
-    ASSERT(location != -1);
-    GLCall(glUniform4f(location, 0.8f, 0.3f, 0.8f, 1.0f));
-
-    // UNBIND EVERYTHING 
-    GLCall(glBindVertexArray(0));
-    GLCall(glUseProgram(0));
-    GLCall(glBindBuffer(GL_ARRAY_BUFFER, 0));
-    GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
-    //
-
-    float r = 0.0f;
-    float increment = 0.05f;
-
-    /* Loop until the user closes the window */
-    while (!glfwWindowShouldClose(window)){
-        /* Render here */
-        GLCall(glClear(GL_COLOR_BUFFER_BIT));
-
+        ShaderProgramSource source = ParseShader("res/shaders/Basic.Shader");
+        unsigned int shader = CreateShader(source.VertexSource, source.FragmentSource);
         GLCall(glUseProgram(shader));
 
-        GLCall(glUniform4f(location, r, 0.3f, 0.8f, 1.0f));
+        GLCall(int location = glGetUniformLocation(shader, "u_Color"));
+        ASSERT(location != -1);
+        GLCall(glUniform4f(location, 0.8f, 0.3f, 0.8f, 1.0f));
 
-        GLCall(glBindVertexArray(vao));
-        GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo));
+        // UNBIND EVERYTHING 
+        GLCall(glBindVertexArray(0));
+        GLCall(glUseProgram(0));
+        GLCall(glBindBuffer(GL_ARRAY_BUFFER, 0));
+        GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
+        //
 
-        GLCall(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr)); // Draw call for the buffer
+        float r = 0.0f;
+        float increment = 0.05f;
 
-        if (r > 1.0f)
-            increment = -0.05f;
-        else if (r < 0.0f)
-            increment = 0.05f;
-    
-        r += increment;
+        /* Loop until the user closes the window */
+        while (!glfwWindowShouldClose(window)) {
+            /* Render here */
+            GLCall(glClear(GL_COLOR_BUFFER_BIT));
 
-        /* Swap front and back buffers */
-        GLCall(glfwSwapBuffers(window));
+            GLCall(glUseProgram(shader));
 
-        /* Poll for and process events */
-        GLCall(glfwPollEvents());
-    }
+            GLCall(glUniform4f(location, r, 0.3f, 0.8f, 1.0f));
 
-    GLCall(glDeleteProgram(shader));
+            GLCall(glBindVertexArray(vao));
+            ib.Bind();
+
+            GLCall(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr)); // Draw call for the buffer
+
+            if (r > 1.0f)
+                increment = -0.05f;
+            else if (r < 0.0f)
+                increment = 0.05f;
+
+            r += increment;
+
+            /* Swap front and back buffers */
+            GLCall(glfwSwapBuffers(window));
+
+            /* Poll for and process events */
+            GLCall(glfwPollEvents());
+        }
+
+        GLCall(glDeleteProgram(shader));
+    } // Scope used because: IndexBuffer is a stack allocated object, so the deconstructor runs at the end of main(),
+    //however GLFWTerminate destroys the OpenGL context, and  GlCall will throw an error if there is no context, so infinite loop.
 
     glfwTerminate();
     return 0;
