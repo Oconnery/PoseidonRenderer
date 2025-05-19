@@ -136,7 +136,7 @@ int main(void){
     unsigned int buffer;
     GLCall(glGenBuffers(1, &buffer)); //Create buffer
     GLCall(glBindBuffer(GL_ARRAY_BUFFER, buffer)); // Select that buffer (bind selects that buffer) ... 
-    GLCall(glBufferData(GL_ARRAY_BUFFER, 6 * 2 * sizeof(float), positions, GL_STATIC_DRAW));
+    GLCall(glBufferData(GL_ARRAY_BUFFER, 4 * 2 * sizeof(float), positions, GL_STATIC_DRAW));
 
     unsigned int ibo; //indexBufferObject
     GLCall(glGenBuffers(1, &ibo));
